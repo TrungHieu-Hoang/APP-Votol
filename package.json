@@ -1,0 +1,15 @@
+{
+  "name": "votol-controller-app",
+  "version": "1.0.0",
+  "description": "Ứng dụng web điều khiển Votol Controller qua Bluetooth HC-05",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "serialport": "^12.0.0",
+    "socket.io": "^4.7.4"
+  }
+}
