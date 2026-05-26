@@ -165,10 +165,11 @@ async function toggleConnection() {
         try {
             const res = await fetch('/api/autodetect');
             const data = await res.json();
+            const baudRateVal = parseInt(document.getElementById('baudRate').value) || 9600;
             if (data.port) {
-                socket.emit('connect_bluetooth', { portPath: data.port, baudRate: 9600 });
+                socket.emit('connect_bluetooth', { portPath: data.port, baudRate: baudRateVal });
             } else {
-                socket.emit('connect_bluetooth', { portPath: 'AUTO', baudRate: 9600 });
+                socket.emit('connect_bluetooth', { portPath: 'AUTO', baudRate: baudRateVal });
             }
         } catch (err) {
             showToast(currentLang === 'en' ? 'Cannot connect' : 'Không thể kết nối', 'error');
@@ -552,7 +553,8 @@ function confirmPicker() {
     
     // Handle COM port selection
     if (pickerKey === '_comPort') {
-        socket.emit('connect_bluetooth', { portPath: pickerSelectedValue, baudRate: 9600 });
+        const baudRateVal = parseInt(document.getElementById('baudRate').value) || 9600;
+        if (socket) socket.emit('connect_bluetooth', { portPath: pickerSelectedValue, baudRate: baudRateVal });
         showToast((currentLang === 'en' ? 'Connecting to ' : 'Đang kết nối ') + pickerSelectedValue + '...', '');
         closePicker();
         return;
@@ -563,7 +565,7 @@ function confirmPicker() {
     if (!isNaN(value)) value = parseInt(value);
     params[pickerKey] = value;
     updateParamDisplay(pickerKey, value);
-    socket.emit('update_param', { key: pickerKey, value });
+    if (socket) socket.emit('update_param', { key: pickerKey, value });
     closePicker();
 }
 
@@ -617,7 +619,7 @@ function confirmEdit() {
     }
     params[editingKey] = value;
     updateParamDisplay(editingKey, value);
-    socket.emit('update_param', { key: editingKey, value });
+    if (socket) socket.emit('update_param', { key: editingKey, value });
     closeModal();
 }
 
@@ -630,12 +632,12 @@ document.getElementById('modalInput').addEventListener('keydown', (e) => {
 // ====== TOGGLE & RADIO ======
 function toggleParam(key, value) {
     params[key] = value;
-    socket.emit('update_param', { key, value });
+    if (socket) socket.emit('update_param', { key, value });
 }
 
 function radioParam(key, value) {
     params[key] = value;
-    socket.emit('update_param', { key, value: parseInt(value) });
+    if (socket) socket.emit('update_param', { key, value: parseInt(value) });
 }
 
 function updateParamDisplay(key, value) {

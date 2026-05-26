@@ -153,10 +153,11 @@ async function toggleConnection() {
         try {
             const res = await fetch('/api/autodetect');
             const data = await res.json();
+            const baudRateVal = parseInt(document.getElementById('baudRate').value) || 9600;
             if (data.port) {
-                socket.emit('connect_bluetooth', { portPath: data.port, baudRate: 9600 });
+                socket.emit('connect_bluetooth', { portPath: data.port, baudRate: baudRateVal });
             } else {
-                socket.emit('connect_bluetooth', { portPath: 'AUTO', baudRate: 9600 });
+                socket.emit('connect_bluetooth', { portPath: 'AUTO', baudRate: baudRateVal });
             }
         } catch (err) {
             showToast(currentLang === 'en' ? 'Cannot connect' : 'Không thể kết nối', 'error');

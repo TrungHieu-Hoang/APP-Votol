@@ -19,7 +19,10 @@
         <div class="status-dot" id="statusDot"></div>
         <span class="conn-label" id="connLabel">Chưa kết nối</span>
         <select id="portSelect" style="display:none"><option value="">Auto</option></select>
-        <input type="hidden" id="baudRate" value="9600">
+        <select id="baudRate">
+            <option value="115200" selected>115200</option>
+            <option value="9600">9600</option>
+        </select>
         <button class="btn-connect" id="btnConnect" onclick="toggleConnection()" data-i18n="connect">Kết nối</button>
     </div>
 
@@ -36,58 +39,64 @@
     <!-- ====== DASHBOARD FULLSCREEN OVERLAY ====== -->
     <div class="dashboard" id="dashboardPanel">
         <div class="dash-back-row"><button class="dash-back-btn" onclick="exitDashboard()">← Quay lại</button></div>
-        <div class="dash-top">
-            <div class="dash-big-val"><div class="dash-label">Điện Áp (V)</div><div class="dash-num" id="dsp-voltage">0.0</div></div>
-            <div class="dash-big-val"><div class="dash-label">Dòng Điện (A)</div><div class="dash-num" id="dsp-current">0.0</div></div>
-        </div>
-        <div class="dash-gauges">
-            <div class="gauge-wrap"><div class="dash-label" data-i18n="speed">Tốc Độ (km/h)</div><canvas id="gaugeSpeed" width="220" height="200"></canvas><div class="gauge-val" id="dsp-speed">0.00</div></div>
-            <div class="gauge-wrap"><div class="dash-label" data-i18n="rpm">Vòng Tua (rpm)</div><canvas id="gaugeRPM" width="220" height="200"></canvas><div class="gauge-val" id="dsp-rpm">0</div></div>
-        </div>
-        <div class="dash-power">Công Suất: <span id="dsp-power">0.0</span>W</div>
-        <div class="dash-temps">
-            <span>Nhiệt độ ĐK: <b id="dsp-tempCtrl">0</b></span>
-            <span>Nhiệt độ ngoài: <b id="dsp-tempExt">0</b></span>
-            <span>Hệ số nhiệt: <b id="dsp-tempCoef">0</b></span>
-        </div>
-        <div class="dash-section-title">● Hiển thị số</div>
-        <div class="dash-gear-row">
-            <label class="gear-opt"><input type="radio" name="dspGear" value="0" checked disabled> Thấp</label>
-            <label class="gear-opt"><input type="radio" name="dspGear" value="1" disabled> Trung bình</label>
-            <label class="gear-opt"><input type="radio" name="dspGear" value="2" disabled> Cao</label>
-            <label class="gear-opt"><input type="radio" name="dspGear" value="3" disabled> S</label>
-        </div>
-        <div class="dash-section-title">● Hiển thị lỗi &nbsp; Mã lỗi: <span id="dsp-faultCode">00000000</span> &nbsp; Trạng thái: <span id="dsp-stateMachine">0</span></div>
-        <div class="fault-grid">
-            <label class="fault-item f-red"><input type="checkbox" disabled id="f-overcurrent"><span>Quá dòng</span></label>
-            <label class="fault-item f-red"><input type="checkbox" disabled id="f-undervolt"><span>Thiếu áp</span></label>
-            <label class="fault-item f-red"><input type="checkbox" disabled id="f-hall"><span>Hall</span></label>
-            <label class="fault-item f-red"><input type="checkbox" disabled id="f-overvolt"><span>Quá áp</span></label>
-            <label class="fault-item f-pink"><input type="checkbox" disabled id="f-overheat"><span>Quá nhiệt</span></label>
-            <label class="fault-item f-pink"><input type="checkbox" disabled id="f-stall"><span>Kẹt rotor</span></label>
-            <label class="fault-item f-pink"><input type="checkbox" disabled id="f-throttle"><span>Tay ga</span></label>
-            <label class="fault-item f-gray"><input type="checkbox" disabled id="f-runaway"><span>Bay tốc</span></label>
-            <label class="fault-item f-pink"><input type="checkbox" disabled id="f-brake"><span>Phanh</span></label>
-            <label class="fault-item f-pink"><input type="checkbox" disabled id="f-precharge"><span>Nạp sẵn</span></label>
-            <label class="fault-item f-pink"><input type="checkbox" disabled id="f-program"><span>Lập trình</span></label>
-            <label class="fault-item f-gray"><input type="checkbox" disabled id="f-driver"><span>Driver</span></label>
-            <label class="fault-item f-pink"><input type="checkbox" disabled id="f-chippower"><span>Chip nguồn</span></label>
-            <label class="fault-item f-pink"><input type="checkbox" disabled id="f-contactor"><span>Contactor</span></label>
-            <label class="fault-item f-pink"><input type="checkbox" disabled id="f-encoder"><span>Encoder</span></label>
-            <label class="fault-item f-gray"><input type="checkbox" disabled id="f-spi"><span>SPI</span></label>
-        </div>
-        <div class="dash-section-title">● Trạng thái</div>
-        <div class="status-grid">
-            <label class="status-item"><input type="radio" disabled id="s-reverse"><span>Lùi</span></label>
-            <label class="status-item"><input type="radio" disabled id="s-brake"><span>Phanh</span></label>
-            <label class="status-item"><input type="radio" disabled id="s-kickstand"><span>Chống</span></label>
-            <label class="status-item"><input type="radio" disabled id="s-park"><span>PARK</span></label>
-            <label class="status-item"><input type="radio" disabled id="s-antitheft"><span>Chống trộm</span></label>
-            <label class="status-item"><input type="radio" disabled id="s-generator"><span>Phát điện</span></label>
-        </div>
-        <div class="dash-counters">
-            <span>success_count: <b id="dsp-success">0</b></span>
-            <span>error_count: <b id="dsp-error">0</b></span>
+        <div class="dashboard-grid-container">
+            <div class="dash-left-col">
+                <div class="dash-top">
+                    <div class="dash-big-val"><div class="dash-label">Điện Áp (V)</div><div class="dash-num" id="dsp-voltage">0.0</div></div>
+                    <div class="dash-big-val"><div class="dash-label">Dòng Điện (A)</div><div class="dash-num" id="dsp-current">0.0</div></div>
+                </div>
+                <div class="dash-gauges">
+                    <div class="gauge-wrap"><div class="dash-label" data-i18n="speed">Tốc Độ (km/h)</div><canvas id="gaugeSpeed" width="220" height="200"></canvas><div class="gauge-val" id="dsp-speed">0.00</div></div>
+                    <div class="gauge-wrap"><div class="dash-label" data-i18n="rpm">Vòng Tua (rpm)</div><canvas id="gaugeRPM" width="220" height="200"></canvas><div class="gauge-val" id="dsp-rpm">0</div></div>
+                </div>
+                <div class="dash-power">Công Suất: <span id="dsp-power">0.0</span>W</div>
+                <div class="dash-temps">
+                    <span>Nhiệt độ ĐK: <b id="dsp-tempCtrl">0</b></span>
+                    <span>Nhiệt độ ngoài: <b id="dsp-tempExt">0</b></span>
+                    <span>Hệ số nhiệt: <b id="dsp-tempCoef">0</b></span>
+                </div>
+                <div class="dash-section-title">● Hiển thị số</div>
+                <div class="dash-gear-row">
+                    <label class="gear-opt"><input type="radio" name="dspGear" value="0" checked disabled> Thấp</label>
+                    <label class="gear-opt"><input type="radio" name="dspGear" value="1" disabled> Trung bình</label>
+                    <label class="gear-opt"><input type="radio" name="dspGear" value="2" disabled> Cao</label>
+                    <label class="gear-opt"><input type="radio" name="dspGear" value="3" disabled> S</label>
+                </div>
+            </div>
+            <div class="dash-right-col">
+                <div class="dash-section-title">● Hiển thị lỗi &nbsp; Mã lỗi: <span id="dsp-faultCode">00000000</span> &nbsp; Trạng thái: <span id="dsp-stateMachine">0</span></div>
+                <div class="fault-grid">
+                    <label class="fault-item f-red"><input type="checkbox" disabled id="f-overcurrent"><span>Quá dòng</span></label>
+                    <label class="fault-item f-red"><input type="checkbox" disabled id="f-undervolt"><span>Thiếu áp</span></label>
+                    <label class="fault-item f-red"><input type="checkbox" disabled id="f-hall"><span>Hall</span></label>
+                    <label class="fault-item f-red"><input type="checkbox" disabled id="f-overvolt"><span>Quá áp</span></label>
+                    <label class="fault-item f-pink"><input type="checkbox" disabled id="f-overheat"><span>Quá nhiệt</span></label>
+                    <label class="fault-item f-pink"><input type="checkbox" disabled id="f-stall"><span>Kẹt rotor</span></label>
+                    <label class="fault-item f-pink"><input type="checkbox" disabled id="f-throttle"><span>Tay ga</span></label>
+                    <label class="fault-item f-gray"><input type="checkbox" disabled id="f-runaway"><span>Bay tốc</span></label>
+                    <label class="fault-item f-pink"><input type="checkbox" disabled id="f-brake"><span>Phanh</span></label>
+                    <label class="fault-item f-pink"><input type="checkbox" disabled id="f-precharge"><span>Nạp sẵn</span></label>
+                    <label class="fault-item f-pink"><input type="checkbox" disabled id="f-program"><span>Lập trình</span></label>
+                    <label class="fault-item f-gray"><input type="checkbox" disabled id="f-driver"><span>Driver</span></label>
+                    <label class="fault-item f-pink"><input type="checkbox" disabled id="f-chippower"><span>Chip nguồn</span></label>
+                    <label class="fault-item f-pink"><input type="checkbox" disabled id="f-contactor"><span>Contactor</span></label>
+                    <label class="fault-item f-pink"><input type="checkbox" disabled id="f-encoder"><span>Encoder</span></label>
+                    <label class="fault-item f-gray"><input type="checkbox" disabled id="f-spi"><span>SPI</span></label>
+                </div>
+                <div class="dash-section-title">● Trạng thái</div>
+                <div class="status-grid">
+                    <label class="status-item"><input type="radio" disabled id="s-reverse"><span>Lùi</span></label>
+                    <label class="status-item"><input type="radio" disabled id="s-brake"><span>Phanh</span></label>
+                    <label class="status-item"><input type="radio" disabled id="s-kickstand"><span>Chống</span></label>
+                    <label class="status-item"><input type="radio" disabled id="s-park"><span>PARK</span></label>
+                    <label class="status-item"><input type="radio" disabled id="s-antitheft"><span>Chống trộm</span></label>
+                    <label class="status-item"><input type="radio" disabled id="s-generator"><span>Phát điện</span></label>
+                </div>
+                <div class="dash-counters">
+                    <span>success_count: <b id="dsp-success">0</b></span>
+                    <span>error_count: <b id="dsp-error">0</b></span>
+                </div>
+            </div>
         </div>
     </div>
 
