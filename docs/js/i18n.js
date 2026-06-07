@@ -32,7 +32,7 @@ function applyLanguage(lang) {
 
 function applyVietnamese() {
     q('h1[data-i18n]', 'CÀI ĐẶT BỘ ĐIỀU KHIỂN VOTOL');
-    q('[data-i18n="appSubtitle"]', 'Kết nối qua Bluetooth HC-05');
+    q('[data-i18n="appSubtitle"]', 'Kết nối qua Bluetooth HM-10');
 
     const cl = document.getElementById('connLabel');
     if (cl && !cl.style.color.includes('success')) cl.textContent = 'Chưa kết nối';

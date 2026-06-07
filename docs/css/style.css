@@ -1081,6 +1081,78 @@ body::before {
   transform: scale(0.97);
 }
 
+/* ====== CONNECTION METHOD MODAL ====== */
+.connect-modal {
+  max-width: 340px;
+  text-align: center;
+}
+.connect-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.connect-opt-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 18px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(21, 32, 51, 0.5);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text);
+}
+.connect-opt-btn:hover {
+  border-color: var(--primary);
+  background: rgba(79, 195, 247, 0.08);
+  box-shadow: var(--glow);
+  transform: translateY(-2px);
+}
+.connect-opt-btn:active {
+  transform: scale(0.97);
+}
+.connect-opt-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.connect-opt-icon {
+  font-size: 28px;
+  margin-bottom: 2px;
+}
+.connect-opt-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.connect-opt-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.connect-modal .btn-cancel {
+  padding: 11px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  background: #1b263b;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.connect-modal .btn-cancel:hover {
+  background: #243044;
+}
+.connect-modal .btn-cancel:active {
+  transform: scale(0.95);
+}
+
 
 /* ==========================================================================
    DESKTOP / WIDE VIEWPORT REDESIGN (width >= 992px)

@@ -4,9 +4,10 @@
  */
 
 const hasBLE = !!navigator.bluetooth;
+const hasSerial = !!navigator.serial;
 const hasServer = typeof io !== 'undefined' && !window._noServer;
 let socket = hasServer ? io() : null;
-let connectionMode = null; // 'ble' or 'server'
+let connectionMode = null; // 'ble', 'serial', or 'server'
 let params = {};
 let editingKey = null;
 
@@ -114,6 +115,8 @@ async function toggleConnection() {
     if (btn.classList.contains('connected')) {
         if (connectionMode === 'ble') {
             await disconnectBLE();
+        } else if (connectionMode === 'serial') {
+            await disconnectSerial();
         } else if (socket) {
             socket.emit('disconnect_bluetooth');
         }
@@ -121,58 +124,88 @@ async function toggleConnection() {
         return;
     }
 
+    // Show connection method modal
+    showConnectModal();
+}
+
+function showConnectModal() {
+    const modal = document.getElementById('connectModal');
+    if (!modal) return;
+
+    // Update button states based on capability
+    const bleBtn = document.getElementById('btnConnBLE');
+    const serialBtn = document.getElementById('btnConnSerial');
+
+    if (bleBtn) {
+        bleBtn.disabled = !hasBLE;
+        if (!hasBLE) bleBtn.title = 'Web Bluetooth không khả dụng';
+    }
+    if (serialBtn) {
+        serialBtn.disabled = !hasSerial;
+        if (!hasSerial) serialBtn.title = 'Web Serial không khả dụng (cần Chrome desktop)';
+    }
+
+    modal.classList.add('show');
+}
+
+function closeConnectModal() {
+    const modal = document.getElementById('connectModal');
+    if (modal) modal.classList.remove('show');
+}
+
+async function connectViaBLE() {
+    closeConnectModal();
+    const btn = document.getElementById('btnConnect');
     btn.disabled = true;
     btn.textContent = currentLang === 'en' ? 'Scanning...' : 'Đang quét...';
 
-    if (hasBLE) {
-        try {
-            const deviceName = await connectBLE();
-            connectionMode = 'ble';
-            setConnected(deviceName);
-            setTimeout(async () => {
-                try { await bleReadData(); } catch(e) { console.error('Auto-read failed:', e); }
-            }, 500);
-            return;
-        } catch (err) {
-            console.log('BLE failed:', err.message);
-            if (err.name === 'NotFoundError' || err.message.includes('cancelled')) {
-                btn.disabled = false;
-                btn.textContent = currentLang === 'en' ? 'Connect' : 'Kết nối';
-                return;
-            }
-            if (!hasServer) {
-                showToast(err.message, 'error');
-                btn.disabled = false;
-                btn.textContent = currentLang === 'en' ? 'Connect' : 'Kết nối';
-                return;
-            }
+    try {
+        const deviceName = await connectBLE();
+        connectionMode = 'ble';
+        setConnected(deviceName);
+        setTimeout(async () => {
+            try { await bleReadData(); } catch(e) { console.error('Auto-read failed:', e); }
+        }, 500);
+    } catch (err) {
+        console.log('BLE failed:', err.message);
+        if (err.name !== 'NotFoundError' && !err.message.includes('cancelled')) {
+            showToast(err.message, 'error');
         }
+        btn.disabled = false;
+        btn.textContent = currentLang === 'en' ? 'Connect' : 'Kết nối';
     }
+}
 
-    if (socket) {
-        try {
-            const res = await fetch('/api/autodetect');
-            const data = await res.json();
-            const baudRateVal = parseInt(document.getElementById('baudRate').value) || 9600;
-            if (data.port) {
-                socket.emit('connect_bluetooth', { portPath: data.port, baudRate: baudRateVal });
-            } else {
-                socket.emit('connect_bluetooth', { portPath: 'AUTO', baudRate: baudRateVal });
-            }
-        } catch (err) {
-            showToast(currentLang === 'en' ? 'Cannot connect' : 'Không thể kết nối', 'error');
+async function connectViaSerial() {
+    closeConnectModal();
+    const btn = document.getElementById('btnConnect');
+    btn.disabled = true;
+    btn.textContent = currentLang === 'en' ? 'Connecting...' : 'Đang kết nối...';
+
+    try {
+        const baudRateVal = parseInt(document.getElementById('baudRate').value) || 115200;
+        const portName = await connectSerial(baudRateVal);
+        connectionMode = 'serial';
+        setConnected(portName);
+        // Auto-read after connection
+        setTimeout(async () => {
+            try { await serialReadData(); } catch(e) { console.error('Auto-read failed:', e); }
+        }, 500);
+    } catch (err) {
+        console.log('Serial failed:', err.message);
+        if (err.name !== 'NotFoundError' && !err.message.includes('cancelled')) {
+            showToast(err.message, 'error');
         }
-    } else {
-        showToast(currentLang === 'en' ? 'Open in Chrome Android for Bluetooth' : 'Mở bằng Chrome Android để kết nối Bluetooth', 'error');
+        btn.disabled = false;
+        btn.textContent = currentLang === 'en' ? 'Connect' : 'Kết nối';
     }
-
-    btn.disabled = false;
-    btn.textContent = currentLang === 'en' ? 'Connect' : 'Kết nối';
 }
 
 function disconnectBT() {
     if (connectionMode === 'ble') {
         disconnectBLE();
+    } else if (connectionMode === 'serial') {
+        disconnectSerial();
     } else if (socket) {
         socket.emit('disconnect_bluetooth');
     }
@@ -182,6 +215,8 @@ function disconnectBT() {
 async function readData() {
     if (connectionMode === 'ble') {
         try { await bleReadData(); } catch(e) { showToast(e.message, 'error'); }
+    } else if (connectionMode === 'serial') {
+        try { await serialReadData(); } catch(e) { showToast(e.message, 'error'); }
     } else if (socket) {
         socket.emit('read_data');
     }
@@ -191,6 +226,11 @@ async function saveData() {
     if (connectionMode === 'ble') {
         try {
             await bleWriteData(params);
+            showToast(currentLang === 'en' ? 'Data saved!' : 'Lưu dữ liệu thành công!', 'success');
+        } catch(e) { showToast(e.message, 'error'); }
+    } else if (connectionMode === 'serial') {
+        try {
+            await serialWriteData(params);
             showToast(currentLang === 'en' ? 'Data saved!' : 'Lưu dữ liệu thành công!', 'success');
         } catch(e) { showToast(e.message, 'error'); }
     } else if (socket) {
@@ -573,6 +613,12 @@ document.getElementById('editModal').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeModal();
 });
 
+document.getElementById('connectModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeConnectModal();
+});
+
 console.log('Votol Controller App - Khởi động');
+console.log('Web Bluetooth:', hasBLE ? '✅' : '❌', '| Web Serial:', hasSerial ? '✅' : '❌');
 setTimeout(initGauges, 100);
 initLanguage();
+

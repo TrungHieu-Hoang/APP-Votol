@@ -326,3 +326,139 @@ async function bleWriteData(params) {
     const cmd = buildWriteCommand(params);
     await sendBLE(cmd);
 }
+
+// ====== Web Serial API (USB Cable) ======
+let serialPort = null;
+let serialWriter = null;
+let serialReader = null;
+let serialConnected = false;
+let serialReadLoop = null;
+
+// USB-to-Serial chip filters (CH340, CP2102, FTDI, PL2303)
+const SERIAL_FILTERS = [
+    { usbVendorId: 0x1A86 }, // CH340/CH341
+    { usbVendorId: 0x10C4 }, // CP2102/CP2104 (Silicon Labs)
+    { usbVendorId: 0x0403 }, // FTDI
+    { usbVendorId: 0x067B }, // PL2303 (Prolific)
+    { usbVendorId: 0x2341 }, // Arduino
+];
+
+async function connectSerial(baudRate = 115200) {
+    if (!navigator.serial) {
+        throw new Error('Web Serial không được hỗ trợ. Dùng Chrome trên máy tính (desktop).');
+    }
+
+    // Prompt user to select a serial port
+    try {
+        serialPort = await navigator.serial.requestPort({ filters: SERIAL_FILTERS });
+    } catch (e) {
+        // If filtered request fails, try without filters
+        if (e.name === 'NotFoundError') {
+            throw e; // User cancelled
+        }
+        serialPort = await navigator.serial.requestPort();
+    }
+
+    await serialPort.open({
+        baudRate: baudRate,
+        dataBits: 8,
+        parity: 'none',
+        stopBits: 1,
+        flowControl: 'none',
+    });
+
+    serialWriter = serialPort.writable.getWriter();
+    serialConnected = true;
+
+    // Start reading loop
+    serialReadLoop = readSerialLoop();
+
+    // Get port info for display
+    const info = serialPort.getInfo();
+    let portName = 'USB Serial';
+    if (info.usbVendorId === 0x1A86) portName = 'CH340 USB';
+    else if (info.usbVendorId === 0x10C4) portName = 'CP2102 USB';
+    else if (info.usbVendorId === 0x0403) portName = 'FTDI USB';
+    else if (info.usbVendorId === 0x067B) portName = 'PL2303 USB';
+    else if (info.usbVendorId) portName = `USB (${info.usbVendorId.toString(16)})`;
+
+    console.log('[Serial] Connected:', portName, '@ baudRate:', baudRate);
+    return portName;
+}
+
+async function readSerialLoop() {
+    const reader = serialPort.readable.getReader();
+    serialReader = reader;
+
+    try {
+        while (serialConnected) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (value && value.length > 0) {
+                processIncoming(value,
+                    (data) => {
+                        if (data._writeSuccess) {
+                            if (window._onWriteSuccess) window._onWriteSuccess();
+                        } else {
+                            if (window._onParamsData) window._onParamsData(data);
+                        }
+                    },
+                    (msg) => {
+                        if (window._onBLEError) window._onBLEError(msg);
+                    }
+                );
+            }
+        }
+    } catch (e) {
+        if (serialConnected) {
+            console.error('[Serial] Read error:', e);
+            if (window._onBLEError) window._onBLEError('Lỗi đọc Serial: ' + e.message);
+        }
+    } finally {
+        try { reader.releaseLock(); } catch(e) {}
+        serialReader = null;
+    }
+}
+
+async function sendSerial(data) {
+    if (!serialWriter || !serialConnected) throw new Error('USB Serial chưa kết nối');
+    await serialWriter.write(data);
+}
+
+async function disconnectSerial() {
+    serialConnected = false;
+    try {
+        if (serialReader) {
+            await serialReader.cancel();
+            serialReader = null;
+        }
+    } catch(e) {}
+    try {
+        if (serialWriter) {
+            serialWriter.releaseLock();
+            serialWriter = null;
+        }
+    } catch(e) {}
+    try {
+        if (serialPort) {
+            await serialPort.close();
+            serialPort = null;
+        }
+    } catch(e) {}
+    resetBuffer();
+    if (window._onBLEDisconnected) window._onBLEDisconnected();
+}
+
+async function serialReadData() {
+    const cmd = buildReadCommand();
+    await sendSerial(cmd);
+}
+
+async function serialWriteData(params) {
+    const cmd = buildWriteCommand(params);
+    await sendSerial(cmd);
+}
+
+// ====== Capability Detection ======
+const hasWebBLE = !!navigator.bluetooth;
+const hasWebSerial = !!navigator.serial;

@@ -251,6 +251,27 @@
         </div>
     </div>
 
+    <!-- CONNECTION METHOD MODAL -->
+    <div class="modal-overlay" id="connectModal">
+        <div class="modal connect-modal">
+            <h3>🔌 Chọn phương thức kết nối</h3>
+            <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px;">Chọn cách kết nối với bộ điều khiển Votol</p>
+            <div class="connect-options">
+                <button class="connect-opt-btn" id="btnConnBLE" onclick="connectViaBLE()">
+                    <span class="connect-opt-icon">📡</span>
+                    <span class="connect-opt-label">Bluetooth (BLE)</span>
+                    <span class="connect-opt-desc">Kết nối không dây qua module BLE</span>
+                </button>
+                <button class="connect-opt-btn" id="btnConnSerial" onclick="connectViaSerial()">
+                    <span class="connect-opt-icon">🔌</span>
+                    <span class="connect-opt-label">Cáp USB (Serial)</span>
+                    <span class="connect-opt-desc">Kết nối bằng cáp USB qua CH340/CP2102</span>
+                </button>
+            </div>
+            <button class="btn-cancel" onclick="closeConnectModal()" style="margin-top:12px;width:100%;">Hủy</button>
+        </div>
+    </div>
+
     <!-- LANGUAGE MODAL -->
     <div class="modal-overlay" id="langModal">
         <div class="modal lang-modal">
