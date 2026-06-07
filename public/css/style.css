@@ -52,132 +52,87 @@ body::before {
   z-index: -1;
 }
 
-/* ====== HEADER ====== */
+/* ====== HEADER (merged with connection) ====== */
 .header {
   background: linear-gradient(180deg, #0f1c2d 0%, #070b11 100%);
   color: white;
-  padding: 18px 20px;
-  text-align: center;
+  padding: 12px 16px 10px;
   position: sticky;
   top: 0;
   z-index: 100;
   border-bottom: 1px solid var(--border);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
 }
-.header-row { 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  gap: 12px; 
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.header-actions {
+  display: flex;
+  gap: 8px;
 }
 .header h1 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 1.5px;
   background: linear-gradient(90deg, #4fc3f7, #a5f3fc, #4fc3f7);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-shadow: 0 2px 10px rgba(79, 195, 247, 0.1);
-}
-.header .subtitle { 
-  font-size: 11px; 
-  font-weight: 500;
-  letter-spacing: 0.8px;
-  margin-top: 4px; 
-  color: var(--text-secondary); 
-  text-transform: uppercase;
 }
 .lang-toggle {
   background: rgba(79, 195, 247, 0.12);
   border: 1px solid rgba(79, 195, 247, 0.25);
   color: #4fc3f7;
-  font-size: 16px;
-  width: 34px; 
-  height: 34px;
+  font-size: 15px;
+  width: 32px; height: 32px;
   border-radius: 50%;
   cursor: pointer;
-  display: flex; 
-  align-items: center; 
-  justify-content: center;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
 }
-.lang-toggle:hover {
-  background: rgba(79, 195, 247, 0.25);
-  box-shadow: var(--glow);
-}
-.lang-toggle:active { 
-  transform: scale(0.92); 
-}
-
-/* ====== CONNECTION BAR ====== */
-.conn-bar {
-  background: rgba(15, 23, 36, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding: 12px 16px;
+.lang-toggle:active { transform: scale(0.92); }
+.header-conn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  gap: 8px;
 }
-.conn-bar select, .conn-bar input {
-  flex: 1;
-  min-width: 85px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: inherit;
-  background: var(--bg-card2);
-  color: var(--text);
-  outline: none;
-  transition: all 0.2s;
-  cursor: pointer;
-}
-.conn-bar select:hover {
-  border-color: var(--primary);
-}
-.conn-bar select:focus {
-  border-color: var(--primary);
-  box-shadow: var(--glow);
-}
-.conn-bar .btn-connect {
-  padding: 8px 18px;
+.btn-connect {
+  padding: 7px 16px;
   border: none;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   color: white;
   background: var(--success);
   white-space: nowrap;
   transition: all 0.25s;
-  box-shadow: 0 4px 12px rgba(46,204,113,0.3);
+  font-family: inherit;
+  box-shadow: 0 3px 10px rgba(46,204,113,0.3);
 }
-.conn-bar .btn-connect.connected { 
-  background: var(--danger); 
-  box-shadow: 0 4px 12px rgba(231,76,60,0.3); 
+.btn-connect.connected {
+  background: var(--danger);
+  box-shadow: 0 3px 10px rgba(231,76,60,0.3);
 }
-.conn-bar .btn-connect:hover {
-  filter: brightness(1.1);
-}
-.conn-bar .btn-connect:active { 
-  transform: scale(0.96); 
-}
+.btn-connect:active { transform: scale(0.96); }
 .status-dot {
-  width: 10px; 
-  height: 10px;
+  width: 9px; height: 9px;
   border-radius: 50%;
   background: var(--danger);
   flex-shrink: 0;
   transition: background 0.3s, box-shadow 0.3s;
 }
-.status-dot.on { 
-  background: var(--success); 
-  box-shadow: 0 0 12px rgba(46,204,113,0.8); 
+.status-dot.on {
+  background: var(--success);
+  box-shadow: 0 0 10px rgba(46,204,113,0.8);
+}
+.conn-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 /* ====== TAB NAVIGATION ====== */
@@ -1081,6 +1036,102 @@ body::before {
   transform: scale(0.97);
 }
 
+/* ====== CONNECTION METHOD MODAL ====== */
+.connect-modal { max-width: 380px; }
+.connect-modal h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--text);
+  text-align: center;
+}
+.connect-baud {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.connect-baud select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card2);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  outline: none;
+}
+.connect-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.connect-opt-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 18px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(21, 32, 51, 0.5);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text);
+}
+.connect-opt-btn:hover {
+  border-color: var(--primary);
+  background: rgba(79, 195, 247, 0.08);
+  box-shadow: var(--glow);
+  transform: translateY(-2px);
+}
+.connect-opt-btn:active {
+  transform: scale(0.97);
+}
+.connect-opt-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.connect-opt-icon {
+  font-size: 28px;
+  margin-bottom: 2px;
+}
+.connect-opt-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.connect-opt-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.connect-modal .btn-cancel {
+  padding: 11px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  background: #1b263b;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.connect-modal .btn-cancel:hover {
+  background: #243044;
+}
+.connect-modal .btn-cancel:active {
+  transform: scale(0.95);
+}
+
 
 /* ==========================================================================
    DESKTOP / WIDE VIEWPORT REDESIGN (width >= 992px)
@@ -1098,16 +1149,10 @@ body::before {
   /* Header adjustments */
   .header {
     border-radius: 0 0 16px 16px;
-    padding: 20px 30px;
+    padding: 16px 24px 12px;
   }
   .header h1 {
-    font-size: 22px;
-  }
-
-  /* Connection bar adjustments */
-  .conn-bar {
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    font-size: 20px;
   }
 
   /* Dashboard in columns layout, placed at the top of settings */

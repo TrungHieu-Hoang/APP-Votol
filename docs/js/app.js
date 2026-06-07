@@ -183,7 +183,7 @@ async function connectViaSerial() {
     btn.textContent = currentLang === 'en' ? 'Connecting...' : 'Đang kết nối...';
 
     try {
-        const baudRateVal = parseInt(document.getElementById('baudRate').value) || 115200;
+        const baudRateVal = parseInt(document.getElementById('baudRateModal').value) || 115200;
         const portName = await connectSerial(baudRateVal);
         connectionMode = 'serial';
         setConnected(portName);

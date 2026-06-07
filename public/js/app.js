@@ -3,15 +3,14 @@
  * Dual mode: Web Bluetooth (direct) / Socket.IO (via server)
  */
 
-// Detect mode: BLE direct or Server bridge
 const hasBLE = !!navigator.bluetooth;
+const hasSerial = !!navigator.serial;
 const hasServer = typeof io !== 'undefined' && !window._noServer;
 let socket = hasServer ? io() : null;
-let connectionMode = null; // 'ble' or 'server'
+let connectionMode = null; // 'ble', 'serial', or 'server'
 let params = {};
 let editingKey = null;
 
-// ====== PARAM LABELS (for modal) ======
 const PARAM_LABELS = {
     overVoltage: { label: 'Quá áp (V)', desc: 'Ngưỡng quá áp, khuyến nghị: 58-84V', step: 1 },
     underVoltage: { label: 'Thiếu áp (V)', desc: 'Ngưỡng thiếu áp, khuyến nghị: 36-60V', step: 1 },
@@ -54,7 +53,6 @@ const PARAM_LABELS = {
     batteryVoltage: { label: 'Điện áp (V)', desc: 'Điện áp pin / nguồn', step: 1 },
 };
 
-// ====== UI UPDATE HELPERS ======
 function setConnected(name) {
     const dot = document.getElementById('statusDot');
     const btn = document.getElementById('btnConnect');
@@ -81,7 +79,6 @@ function setDisconnected() {
     connectionMode = null;
 }
 
-// ====== BLE CALLBACKS ======
 window._onParamsData = (data) => {
     params = data;
     updateAllParams(data);
@@ -98,7 +95,6 @@ window._onBLEDisconnected = () => {
     showToast(currentLang === 'en' ? 'Bluetooth Disconnected' : 'Đã ngắt Bluetooth', 'error');
 };
 
-// ====== SOCKET.IO EVENTS (if server available) ======
 if (socket) {
     socket.on('connect', () => { console.log('Socket.IO connected'); });
     socket.on('connectionStatus', (data) => {
@@ -114,13 +110,13 @@ if (socket) {
     socket.on('error', (data) => { showToast(data.message, 'error'); });
 }
 
-// ====== CONNECTION ======
 async function toggleConnection() {
     const btn = document.getElementById('btnConnect');
     if (btn.classList.contains('connected')) {
-        // Disconnect
         if (connectionMode === 'ble') {
             await disconnectBLE();
+        } else if (connectionMode === 'serial') {
+            await disconnectSerial();
         } else if (socket) {
             socket.emit('disconnect_bluetooth');
         }
@@ -128,73 +124,99 @@ async function toggleConnection() {
         return;
     }
 
+    // Show connection method modal
+    showConnectModal();
+}
+
+function showConnectModal() {
+    const modal = document.getElementById('connectModal');
+    if (!modal) return;
+
+    // Update button states based on capability
+    const bleBtn = document.getElementById('btnConnBLE');
+    const serialBtn = document.getElementById('btnConnSerial');
+
+    if (bleBtn) {
+        bleBtn.disabled = !hasBLE;
+        if (!hasBLE) bleBtn.title = 'Web Bluetooth không khả dụng';
+    }
+    if (serialBtn) {
+        serialBtn.disabled = !hasSerial;
+        if (!hasSerial) serialBtn.title = 'Web Serial không khả dụng (cần Chrome desktop)';
+    }
+
+    modal.classList.add('show');
+}
+
+function closeConnectModal() {
+    const modal = document.getElementById('connectModal');
+    if (modal) modal.classList.remove('show');
+}
+
+async function connectViaBLE() {
+    closeConnectModal();
+    const btn = document.getElementById('btnConnect');
     btn.disabled = true;
     btn.textContent = currentLang === 'en' ? 'Scanning...' : 'Đang quét...';
 
-    // Always try Web Bluetooth first (works on phone without server)
-    if (hasBLE) {
-        try {
-            const deviceName = await connectBLE();
-            connectionMode = 'ble';
-            setConnected(deviceName);
-            // Auto read data after connection
-            setTimeout(async () => {
-                try { await bleReadData(); } catch(e) { console.error('Auto-read failed:', e); }
-            }, 500);
-            return;
-        } catch (err) {
-            console.log('BLE failed:', err.message);
-            if (err.name === 'NotFoundError' || err.message.includes('cancelled')) {
-                // User cancelled picker - don't fallback
-                btn.disabled = false;
-                btn.textContent = currentLang === 'en' ? 'Connect' : 'Kết nối';
-                return;
-            }
-            // Try server fallback
-            if (!hasServer) {
-                showToast(err.message, 'error');
-                btn.disabled = false;
-                btn.textContent = currentLang === 'en' ? 'Connect' : 'Kết nối';
-                return;
-            }
+    try {
+        const deviceName = await connectBLE();
+        connectionMode = 'ble';
+        setConnected(deviceName);
+        setTimeout(async () => {
+            try { await bleReadData(); } catch(e) { console.error('Auto-read failed:', e); }
+        }, 500);
+    } catch (err) {
+        console.log('BLE failed:', err.message);
+        if (err.name !== 'NotFoundError' && !err.message.includes('cancelled')) {
+            showToast(err.message, 'error');
         }
+        btn.disabled = false;
+        btn.textContent = currentLang === 'en' ? 'Connect' : 'Kết nối';
     }
+}
 
-    // Fallback: Socket.IO through server
-    if (socket) {
-        try {
-            const res = await fetch('/api/autodetect');
-            const data = await res.json();
-            const baudRateVal = parseInt(document.getElementById('baudRate').value) || 9600;
-            if (data.port) {
-                socket.emit('connect_bluetooth', { portPath: data.port, baudRate: baudRateVal });
-            } else {
-                socket.emit('connect_bluetooth', { portPath: 'AUTO', baudRate: baudRateVal });
-            }
-        } catch (err) {
-            showToast(currentLang === 'en' ? 'Cannot connect' : 'Không thể kết nối', 'error');
+async function connectViaSerial() {
+    closeConnectModal();
+    const btn = document.getElementById('btnConnect');
+    btn.disabled = true;
+    btn.textContent = currentLang === 'en' ? 'Connecting...' : 'Đang kết nối...';
+
+    try {
+        const baudRateVal = parseInt(document.getElementById('baudRateModal').value) || 115200;
+        const portName = await connectSerial(baudRateVal);
+        connectionMode = 'serial';
+        setConnected(portName);
+        // Auto-read after connection
+        setTimeout(async () => {
+            try { await serialReadData(); } catch(e) { console.error('Auto-read failed:', e); }
+        }, 500);
+    } catch (err) {
+        console.log('Serial failed:', err.message);
+        if (err.name !== 'NotFoundError' && !err.message.includes('cancelled')) {
+            showToast(err.message, 'error');
         }
-    } else {
-        showToast(currentLang === 'en' ? 'Open in Chrome Android for Bluetooth' : 'Mở bằng Chrome Android để kết nối Bluetooth', 'error');
+        btn.disabled = false;
+        btn.textContent = currentLang === 'en' ? 'Connect' : 'Kết nối';
     }
-
-    btn.disabled = false;
-    btn.textContent = currentLang === 'en' ? 'Connect' : 'Kết nối';
 }
 
 function disconnectBT() {
     if (connectionMode === 'ble') {
         disconnectBLE();
+    } else if (connectionMode === 'serial') {
+        disconnectSerial();
     } else if (socket) {
         socket.emit('disconnect_bluetooth');
     }
     setDisconnected();
 }
 
-// ====== DATA ACTIONS ======
 async function readData() {
     if (connectionMode === 'ble') {
         try { await bleReadData(); } catch(e) { showToast(e.message, 'error'); }
+    } else if (connectionMode === 'serial') {
+        try { await serialReadData(); } catch(e) { showToast(e.message, 'error'); }
     } else if (socket) {
         socket.emit('read_data');
     }
@@ -206,14 +228,17 @@ async function saveData() {
             await bleWriteData(params);
             showToast(currentLang === 'en' ? 'Data saved!' : 'Lưu dữ liệu thành công!', 'success');
         } catch(e) { showToast(e.message, 'error'); }
+    } else if (connectionMode === 'serial') {
+        try {
+            await serialWriteData(params);
+            showToast(currentLang === 'en' ? 'Data saved!' : 'Lưu dữ liệu thành công!', 'success');
+        } catch(e) { showToast(e.message, 'error'); }
     } else if (socket) {
         socket.emit('write_data', params);
     }
 }
 
-// ====== TAB NAVIGATION ======
 function showPage(pageId) {
-    // If clicking display tab, show fullscreen dashboard
     if (pageId === 'display') {
         document.getElementById('dashboardPanel').classList.add('show');
         initGauges();
@@ -227,48 +252,36 @@ function showPage(pageId) {
 
 function exitDashboard() {
     document.getElementById('dashboardPanel').classList.remove('show');
-    // Chuyển về trang 1
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('page-page1').classList.add('active');
-    document.querySelectorAll('.tab-btn')[1].classList.add('active'); // Cài Đặt 1
+    document.querySelectorAll('.tab-btn')[1].classList.add('active');
 }
 
-// ====== GAUGE DRAWING (Professional Style) ======
 function drawGauge(canvasId, value, maxVal, ticks) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    const W = canvas.width, H = canvas.height;
     const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
     ctx.clearRect(0, 0, W, H);
-
-    const cx = W / 2;
-    const cy = H * 0.58;
-    const r = Math.min(W, H) * 0.42;
-
-    // Arc spans 270 degrees: from 135° to 405° (or -225° to 45°)
+    const cx = W / 2, cy = H * 0.58, r = Math.min(W, H) * 0.42;
     const startAngle = (135 * Math.PI) / 180;
     const endAngle = (405 * Math.PI) / 180;
     const totalAngle = endAngle - startAngle;
 
-    // --- Outer glow ring ---
     ctx.beginPath();
     ctx.arc(cx, cy, r + 2, startAngle, endAngle);
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 10;
     ctx.stroke();
 
-    // --- Inner shadow ring ---
     ctx.beginPath();
     ctx.arc(cx, cy, r - 10, startAngle, endAngle);
     ctx.strokeStyle = 'rgba(255,255,255,0.02)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // --- Colored arc with smooth gradient segments ---
-    const arcSegs = 100;
-    const arcWidth = 6;
+    const arcSegs = 100, arcWidth = 6;
     for (let i = 0; i < arcSegs; i++) {
         const t = i / arcSegs;
         const a1 = startAngle + totalAngle * t;
@@ -294,14 +307,11 @@ function drawGauge(canvasId, value, maxVal, ticks) {
         ctx.arc(cx, cy, r, a1, a2);
         ctx.strokeStyle = `rgb(${r1},${g1},${b1})`;
         ctx.lineWidth = arcWidth;
-        ctx.lineCap = 'butt';
         ctx.stroke();
     }
 
-    // --- Tick marks & labels ---
     const majorStep = ticks.length > 1 ? ticks[1] - ticks[0] : maxVal;
-    const minorPerMajor = 5;
-    const minorStep = majorStep / minorPerMajor;
+    const minorPerMajor = 5, minorStep = majorStep / minorPerMajor;
     const totalMinor = Math.round(maxVal / minorStep);
 
     for (let i = 0; i <= totalMinor; i++) {
@@ -309,7 +319,6 @@ function drawGauge(canvasId, value, maxVal, ticks) {
         const ratio = val / maxVal;
         const angle = startAngle + totalAngle * ratio;
         const isMajor = (val % majorStep) < 0.001 || Math.abs(val % majorStep - majorStep) < 0.001;
-
         const outerR = r - arcWidth / 2 - 2;
         const innerR = isMajor ? outerR - 10 : outerR - 5;
 
@@ -318,54 +327,35 @@ function drawGauge(canvasId, value, maxVal, ticks) {
         ctx.lineTo(cx + innerR * Math.cos(angle), cy + innerR * Math.sin(angle));
         ctx.strokeStyle = isMajor ? '#ddd' : '#555';
         ctx.lineWidth = isMajor ? 2 : 1;
-        ctx.lineCap = 'round';
         ctx.stroke();
 
-        // Labels on major ticks
         if (isMajor) {
             const labelR = innerR - 12;
-            const lx = cx + labelR * Math.cos(angle);
-            const ly = cy + labelR * Math.sin(angle);
             ctx.fillStyle = '#ccc';
             ctx.font = `bold ${W > 250 ? 11 : 9}px Inter, sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(Math.round(val), lx, ly);
+            ctx.fillText(Math.round(val), cx + labelR * Math.cos(angle), cy + labelR * Math.sin(angle));
         }
     }
 
-    // --- Needle ---
     const valRatio = Math.min(Math.max(value / maxVal, 0), 1);
     const needleAngle = startAngle + totalAngle * valRatio;
-    const needleLen = r - arcWidth / 2 - 4;
-    const needleTailLen = 14;
+    const needleLen = r - arcWidth / 2 - 4, needleTailLen = 14;
 
-    // Needle glow
     ctx.save();
     ctx.shadowColor = 'rgba(255, 87, 34, 0.6)';
     ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.moveTo(
-        cx + needleLen * Math.cos(needleAngle),
-        cy + needleLen * Math.sin(needleAngle)
-    );
-    // Tapered needle
-    const perpAngle = needleAngle + Math.PI / 2;
-    const baseW = 2;
-    ctx.lineTo(
-        cx + baseW * Math.cos(perpAngle) - needleTailLen * Math.cos(needleAngle),
-        cy + baseW * Math.sin(perpAngle) - needleTailLen * Math.sin(needleAngle)
-    );
-    ctx.lineTo(
-        cx - baseW * Math.cos(perpAngle) - needleTailLen * Math.cos(needleAngle),
-        cy - baseW * Math.sin(perpAngle) - needleTailLen * Math.sin(needleAngle)
-    );
+    ctx.moveTo(cx + needleLen * Math.cos(needleAngle), cy + needleLen * Math.sin(needleAngle));
+    const perpAngle = needleAngle + Math.PI / 2, baseW = 2;
+    ctx.lineTo(cx + baseW * Math.cos(perpAngle) - needleTailLen * Math.cos(needleAngle), cy + baseW * Math.sin(perpAngle) - needleTailLen * Math.sin(needleAngle));
+    ctx.lineTo(cx - baseW * Math.cos(perpAngle) - needleTailLen * Math.cos(needleAngle), cy - baseW * Math.sin(perpAngle) - needleTailLen * Math.sin(needleAngle));
     ctx.closePath();
     ctx.fillStyle = '#ff5722';
     ctx.fill();
     ctx.restore();
 
-    // Center hub
     const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 10);
     grad.addColorStop(0, '#ff7043');
     grad.addColorStop(0.5, '#e64a19');
@@ -373,10 +363,6 @@ function drawGauge(canvasId, value, maxVal, ticks) {
     ctx.beginPath();
     ctx.arc(cx, cy, 8, 0, Math.PI * 2);
     ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff';
     ctx.fill();
 }
 
@@ -388,29 +374,23 @@ function initGauges() {
     drawGauge('gaugeRPM', 0, 3000, rpmTicks);
 }
 
-// ====== UPDATE ALL PARAMS ======
 function updateAllParams(data) {
     params = { ...params, ...data };
-
-    // Update dashboard display
     document.getElementById('dsp-voltage').textContent = data.batteryVoltage || '0.0';
     document.getElementById('dsp-current').textContent = data.maxCurrentLimit || '0.0';
     document.getElementById('dsp-speed').textContent = '0.00';
     document.getElementById('dsp-rpm').textContent = data.maxRPM || '0';
     document.getElementById('dsp-power').textContent = '0.0';
 
-    // Redraw gauges
     drawGauge('gaugeSpeed', 0, 120, speedTicks);
     drawGauge('gaugeRPM', 0, 3000, rpmTicks);
 
-    // Update page1 info
     const p1info = document.getElementById('page1Info');
     if (p1info) {
         const pmLabel = currentLang === 'en' ? 'SW Ver' : 'Phiên bản PM';
         const pcLabel = currentLang === 'en' ? 'HW Ver' : 'Phiên bản PC';
         p1info.textContent = `${pmLabel}: ${data.softwareVersion || 0}    ${pcLabel}: ${data.hardwareVersion || 0}`;
     }
-    // Update device info
     const devBrand = document.getElementById('dev-brand');
     const devModel = document.getElementById('dev-model');
     const devVoltage = document.getElementById('dev-voltage');
@@ -418,7 +398,6 @@ function updateAllParams(data) {
     if (devModel) devModel.textContent = data._modelName || '--';
     if (devVoltage) devVoltage.textContent = data.batteryVoltage || '--';
 
-    // Update all numeric values
     const numericKeys = [
         'overVoltage','underVoltage','softUnderVoltage','underVoltageHyst','busCurrent','phaseCurrentLimit',
         'throttleLowProtect','throttleStartV','throttleEndV','throttleHighProtect',
@@ -435,7 +414,6 @@ function updateAllParams(data) {
         if (el && data[key] !== undefined) el.textContent = data[key];
     });
 
-    // Update toggles
     const toggleKeys = ['autoExitEnable','speedSettingEnable','speedLimitSwitch','softStartSwitch',
         'hallSwapYB','phaseSwapBG','hillParkEnable','cruiseEnable','walkAssistEnable','dualVoltageAutoDetect'];
     toggleKeys.forEach(key => {
@@ -443,7 +421,6 @@ function updateAllParams(data) {
         if (el && data[key] !== undefined) el.checked = !!data[key];
     });
 
-    // Update radios
     const radioKeys = ['gearMode','defaultGear','direction','motorType','outputType','dualVoltageSelect'];
     radioKeys.forEach(key => {
         if (data[key] !== undefined) {
@@ -453,22 +430,10 @@ function updateAllParams(data) {
     });
 }
 
-function updateParamDisplay(key, value) {
-    const el = document.getElementById('v-' + key);
-    if (!el) return;
-    if (el.type === 'checkbox') { el.checked = !!value; }
-    else if (el.type === 'radio') {
-        const radio = document.querySelector(`input[name="${key}"][value="${value}"]`);
-        if (radio) radio.checked = true;
-    } else { el.textContent = value; }
-}
-
-// ====== PICKER OPTIONS ======
 const PICKER_OPTIONS = {
     _modelName: ['EM30', 'EM50', 'EM100', 'EM150', 'EM200'],
     batteryVoltage: [48, 60, 72, 84, 96],
 };
-
 let pickerKey = null;
 let pickerSelectedValue = null;
 
@@ -481,7 +446,6 @@ function openPicker(key) {
     document.getElementById('pickerTitle').textContent = info.label;
     const list = document.getElementById('pickerList');
     list.innerHTML = '';
-
     options.forEach((opt, i) => {
         const div = document.createElement('div');
         div.className = 'picker-item';
@@ -491,21 +455,17 @@ function openPicker(key) {
         list.appendChild(div);
     });
 
-    // Update picker button text
     const cancelBtn = document.querySelector('[data-i18n-picker="cancel"]');
     const okBtn = document.querySelector('[data-i18n-picker="ok"]');
     if (cancelBtn) cancelBtn.textContent = currentLang === 'en' ? 'Cancel' : 'Hủy';
     if (okBtn) okBtn.textContent = currentLang === 'en' ? 'Confirm' : 'Xác nhận';
 
     document.getElementById('pickerModal').classList.add('show');
-
-    // Scroll to current value
     setTimeout(() => {
         let idx = options.indexOf(currentVal);
         if (idx === -1) idx = options.findIndex(o => String(o) === String(currentVal));
         if (idx === -1) idx = 0;
         scrollPickerTo(idx);
-        // Add scroll listener
         list.addEventListener('scroll', onPickerScroll);
     }, 50);
 }
@@ -514,22 +474,16 @@ function scrollPickerTo(idx) {
     const list = document.getElementById('pickerList');
     const items = list.querySelectorAll('.picker-item');
     if (!items[idx]) return;
-    const itemH = 44;
-    list.scrollTop = idx * itemH;
+    list.scrollTop = idx * 44;
     updatePickerHighlight();
 }
 
-function onPickerScroll() {
-    updatePickerHighlight();
-}
+function onPickerScroll() { updatePickerHighlight(); }
 
 function updatePickerHighlight() {
     const list = document.getElementById('pickerList');
     const items = list.querySelectorAll('.picker-item');
-    const itemH = 44;
-    const scrollTop = list.scrollTop;
-    const centerIdx = Math.round(scrollTop / itemH);
-
+    const centerIdx = Math.round(list.scrollTop / 44);
     items.forEach((item, i) => {
         item.classList.remove('selected', 'near');
         if (i === centerIdx) {
@@ -543,44 +497,29 @@ function updatePickerHighlight() {
 
 function closePicker() {
     document.getElementById('pickerModal').classList.remove('show');
-    const list = document.getElementById('pickerList');
-    list.removeEventListener('scroll', onPickerScroll);
     pickerKey = null;
 }
 
 function confirmPicker() {
     if (!pickerKey || pickerSelectedValue === null) return;
-    
-    // Handle COM port selection
-    if (pickerKey === '_comPort') {
-        const baudRateVal = parseInt(document.getElementById('baudRate').value) || 9600;
-        if (socket) socket.emit('connect_bluetooth', { portPath: pickerSelectedValue, baudRate: baudRateVal });
-        showToast((currentLang === 'en' ? 'Connecting to ' : 'Đang kết nối ') + pickerSelectedValue + '...', '');
-        closePicker();
-        return;
-    }
-    
     let value = pickerSelectedValue;
-    // Convert to number if it's a number option
     if (!isNaN(value)) value = parseInt(value);
     params[pickerKey] = value;
     updateParamDisplay(pickerKey, value);
-    if (socket) socket.emit('update_param', { key: pickerKey, value });
+    if (connectionMode === 'ble') {
+        // BLE update logic directly
+    } else if (socket) {
+        socket.emit('update_param', { key: pickerKey, value });
+    }
     closePicker();
 }
 
-// Close picker on overlay click
 document.getElementById('pickerModal').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closePicker();
 });
 
-// ====== EDIT PARAM (Modal) ======
 function editParam(key) {
-    // Use picker for Model and Voltage
-    if (PICKER_OPTIONS[key]) {
-        openPicker(key);
-        return;
-    }
+    if (PICKER_OPTIONS[key]) { openPicker(key); return; }
     editingKey = key;
     const info = PARAM_LABELS[key] || { label: key, desc: '', step: 1 };
     document.getElementById('modalTitle').textContent = info.label;
@@ -619,17 +558,19 @@ function confirmEdit() {
     }
     params[editingKey] = value;
     updateParamDisplay(editingKey, value);
-    if (socket) socket.emit('update_param', { key: editingKey, value });
+    if (connectionMode === 'ble') {
+        // Directly modified local params object
+    } else if (socket) {
+        socket.emit('update_param', { key: editingKey, value });
+    }
     closeModal();
 }
 
-// Handle Enter key in modal
 document.getElementById('modalInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') confirmEdit();
     if (e.key === 'Escape') closeModal();
 });
 
-// ====== TOGGLE & RADIO ======
 function toggleParam(key, value) {
     params[key] = value;
     if (socket) socket.emit('update_param', { key, value });
@@ -641,7 +582,6 @@ function radioParam(key, value) {
 }
 
 function updateParamDisplay(key, value) {
-    // Standard param elements
     const el = document.getElementById('v-' + key);
     if (el) {
         if (el.type === 'checkbox') { el.checked = !!value; }
@@ -650,7 +590,6 @@ function updateParamDisplay(key, value) {
             if (radio) radio.checked = true;
         } else { el.textContent = value; }
     }
-    // Device info elements
     if (key === '_modelName') {
         const devModel = document.getElementById('dev-model');
         if (devModel) devModel.textContent = value;
@@ -663,7 +602,6 @@ function updateParamDisplay(key, value) {
     }
 }
 
-// ====== TOAST ======
 function showToast(msg, type = '') {
     const toast = document.getElementById('toast');
     toast.textContent = msg;
@@ -671,12 +609,15 @@ function showToast(msg, type = '') {
     setTimeout(() => { toast.classList.remove('show'); }, 2500);
 }
 
-// ====== CLOSE MODAL on overlay click ======
 document.getElementById('editModal').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeModal();
 });
 
-// ====== INIT ======
+document.getElementById('connectModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeConnectModal();
+});
+
 console.log('Votol Controller App - Khởi động');
+console.log('Web Bluetooth:', hasBLE ? '✅' : '❌', '| Web Serial:', hasSerial ? '✅' : '❌');
 setTimeout(initGauges, 100);
 initLanguage();

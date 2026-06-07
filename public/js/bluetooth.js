@@ -75,7 +75,6 @@ const PARAM_MAP = {
 const MODEL_NAMES = { 0:'EM25',1:'EM30',2:'EM50',3:'EM50S',4:'EM60',5:'EM80',6:'EM100',7:'EM100S',8:'EM150',9:'EM200',10:'EM260' };
 const BRAND_NAMES = { 0:'Phổ thông',1:'SIA',2:'EMsport' };
 
-// ====== Protocol Functions ======
 function calcChecksum(data) {
     let cs = 0;
     for (let i = 0; i < data.length; i++) cs ^= data[i];
@@ -146,11 +145,9 @@ function decodeParams(dataBlock) {
     return params;
 }
 
-// ====== Frame Parser ======
 let rxBuffer = new Uint8Array(0);
 
 function processIncoming(chunk, onData, onError) {
-    // Append to buffer
     const newBuf = new Uint8Array(rxBuffer.length + chunk.length);
     newBuf.set(rxBuffer);
     newBuf.set(chunk, rxBuffer.length);
@@ -188,12 +185,10 @@ function processIncoming(chunk, onData, onError) {
 
 function resetBuffer() { rxBuffer = new Uint8Array(0); }
 
-// ====== Web Bluetooth Connection ======
-// Common BLE UART Service UUIDs
 const BLE_SERVICES = [
-    0xFFE0,                                                    // HM-10, CC2541, JDY-23
-    '6e400001-b5a3-f393-e0a9-e50e24dcca9e',                   // Nordic UART (NUS)
-    0xFFF0,                                                    // Some Chinese modules
+    0xFFE0,
+    '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+    0xFFF0,
 ];
 const BLE_CHAR_MAP = {
     '0000ffe0': { tx: 0xFFE1, rx: 0xFFE1 },
@@ -212,17 +207,14 @@ async function connectBLE() {
         throw new Error('Web Bluetooth không được hỗ trợ. Dùng Chrome Android.');
     }
 
-    // Request device - show all BLE devices
     bleDevice = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: BLE_SERVICES,
     });
 
     bleDevice.addEventListener('gattserverdisconnected', onBLEDisconnected);
-
     bleServer = await bleDevice.gatt.connect();
 
-    // Try to find UART service
     let service = null;
     let serviceKey = null;
     for (const svc of BLE_SERVICES) {
@@ -235,7 +227,6 @@ async function connectBLE() {
     }
 
     if (!service) {
-        // Try to discover all services
         const services = await bleServer.getPrimaryServices();
         if (services.length > 0) {
             service = services[0];
@@ -246,11 +237,9 @@ async function connectBLE() {
         }
     }
 
-    // Find TX and RX characteristics
     const chars = await service.getCharacteristics();
     console.log('[BLE] Characteristics:', chars.map(c => c.uuid));
 
-    // Try mapped characteristics first
     const map = BLE_CHAR_MAP[serviceKey];
     if (map) {
         try {
@@ -261,7 +250,6 @@ async function connectBLE() {
         }
     }
 
-    // Fallback: find writable + notifiable characteristics
     if (!bleTxChar) {
         for (const c of chars) {
             if (c.properties.writeWithoutResponse || c.properties.write) {
@@ -275,7 +263,6 @@ async function connectBLE() {
 
     if (!bleTxChar) throw new Error('Không tìm thấy characteristic ghi dữ liệu');
 
-    // Subscribe to notifications if available
     if (bleRxChar && bleRxChar.properties.notify) {
         await bleRxChar.startNotifications();
         bleRxChar.addEventListener('characteristicvaluechanged', onBLEData);
@@ -310,7 +297,6 @@ function onBLEDisconnected() {
 
 async function sendBLE(data) {
     if (!bleTxChar || !bleConnected) throw new Error('BLE chưa kết nối');
-    // BLE has 20-byte MTU limit, send in chunks
     const chunkSize = 20;
     for (let i = 0; i < data.length; i += chunkSize) {
         const chunk = data.slice(i, Math.min(i + chunkSize, data.length));
@@ -340,3 +326,131 @@ async function bleWriteData(params) {
     const cmd = buildWriteCommand(params);
     await sendBLE(cmd);
 }
+
+// ====== Web Serial API (USB Cable) ======
+let serialPort = null;
+let serialWriter = null;
+let serialReader = null;
+let serialConnected = false;
+let serialReadLoop = null;
+
+// USB-to-Serial chip filters (CH340, CP2102, FTDI, PL2303)
+const SERIAL_FILTERS = [
+    { usbVendorId: 0x1A86 }, // CH340/CH341
+    { usbVendorId: 0x10C4 }, // CP2102/CP2104 (Silicon Labs)
+    { usbVendorId: 0x0403 }, // FTDI
+    { usbVendorId: 0x067B }, // PL2303 (Prolific)
+    { usbVendorId: 0x2341 }, // Arduino
+];
+
+async function connectSerial(baudRate = 115200) {
+    if (!navigator.serial) {
+        throw new Error('Web Serial không được hỗ trợ. Dùng Chrome trên máy tính (desktop).');
+    }
+
+    // Prompt user to select a serial port (show ALL ports, no filter)
+    serialPort = await navigator.serial.requestPort();
+
+    await serialPort.open({
+        baudRate: baudRate,
+        dataBits: 8,
+        parity: 'none',
+        stopBits: 1,
+        flowControl: 'none',
+    });
+
+    serialWriter = serialPort.writable.getWriter();
+    serialConnected = true;
+
+    // Start reading loop
+    serialReadLoop = readSerialLoop();
+
+    // Get port info for display
+    const info = serialPort.getInfo();
+    let portName = 'USB Serial';
+    if (info.usbVendorId === 0x1A86) portName = 'CH340 USB';
+    else if (info.usbVendorId === 0x10C4) portName = 'CP2102 USB';
+    else if (info.usbVendorId === 0x0403) portName = 'FTDI USB';
+    else if (info.usbVendorId === 0x067B) portName = 'PL2303 USB';
+    else if (info.usbVendorId) portName = `USB (${info.usbVendorId.toString(16)})`;
+
+    console.log('[Serial] Connected:', portName, '@ baudRate:', baudRate);
+    return portName;
+}
+
+async function readSerialLoop() {
+    const reader = serialPort.readable.getReader();
+    serialReader = reader;
+
+    try {
+        while (serialConnected) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (value && value.length > 0) {
+                processIncoming(value,
+                    (data) => {
+                        if (data._writeSuccess) {
+                            if (window._onWriteSuccess) window._onWriteSuccess();
+                        } else {
+                            if (window._onParamsData) window._onParamsData(data);
+                        }
+                    },
+                    (msg) => {
+                        if (window._onBLEError) window._onBLEError(msg);
+                    }
+                );
+            }
+        }
+    } catch (e) {
+        if (serialConnected) {
+            console.error('[Serial] Read error:', e);
+            if (window._onBLEError) window._onBLEError('Lỗi đọc Serial: ' + e.message);
+        }
+    } finally {
+        try { reader.releaseLock(); } catch(e) {}
+        serialReader = null;
+    }
+}
+
+async function sendSerial(data) {
+    if (!serialWriter || !serialConnected) throw new Error('USB Serial chưa kết nối');
+    await serialWriter.write(data);
+}
+
+async function disconnectSerial() {
+    serialConnected = false;
+    try {
+        if (serialReader) {
+            await serialReader.cancel();
+            serialReader = null;
+        }
+    } catch(e) {}
+    try {
+        if (serialWriter) {
+            serialWriter.releaseLock();
+            serialWriter = null;
+        }
+    } catch(e) {}
+    try {
+        if (serialPort) {
+            await serialPort.close();
+            serialPort = null;
+        }
+    } catch(e) {}
+    resetBuffer();
+    if (window._onBLEDisconnected) window._onBLEDisconnected();
+}
+
+async function serialReadData() {
+    const cmd = buildReadCommand();
+    await sendSerial(cmd);
+}
+
+async function serialWriteData(params) {
+    const cmd = buildWriteCommand(params);
+    await sendSerial(cmd);
+}
+
+// ====== Capability Detection ======
+const hasWebBLE = !!navigator.bluetooth;
+const hasWebSerial = !!navigator.serial;

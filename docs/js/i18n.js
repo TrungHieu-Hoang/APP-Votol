@@ -9,6 +9,7 @@ function setLanguage(lang) {
     currentLang = lang;
     localStorage.setItem('votol_lang', lang);
     applyLanguage(lang);
+    // Hide language modal
     const modal = document.getElementById('langModal');
     if (modal) modal.classList.remove('show');
 }
@@ -31,35 +32,46 @@ function applyLanguage(lang) {
 }
 
 function applyVietnamese() {
+    // Header
     q('h1[data-i18n]', 'CÀI ĐẶT BỘ ĐIỀU KHIỂN VOTOL');
-    q('[data-i18n="appSubtitle"]', 'Kết nối qua Bluetooth HM-10');
+    q('[data-i18n="appSubtitle"]', 'Kết nối qua Bluetooth HC-05');
 
+    // Connection
     const cl = document.getElementById('connLabel');
     if (cl && !cl.style.color.includes('success')) cl.textContent = 'Chưa kết nối';
     const btn = document.getElementById('btnConnect');
     if (btn && !btn.classList.contains('connected')) btn.textContent = 'Kết nối';
     if (btn && btn.classList.contains('connected')) btn.textContent = 'Ngắt';
 
+    // Tabs
     const tabs = document.querySelectorAll('.tab-btn');
     const tabNames = ['Hiển Thị', 'Cài Đặt 1', 'Cài Đặt 2', 'Cài Đặt 3', 'Cài Đặt 4', 'Thêm'];
     tabs.forEach((t, i) => { if (tabNames[i]) t.textContent = tabNames[i]; });
 
+    // Dashboard
     q('.dash-back-btn', '← Quay lại');
     qAll('.dash-top .dash-label', ['Điện Áp (V)', 'Dòng Điện (A)']);
     qAll('.dash-gauges .dash-label', ['Tốc Độ (km/h)', 'Vòng Tua (rpm)']);
     qPower('Công Suất:');
     qTemps(['Nhiệt độ ĐK:', 'Nhiệt độ ngoài:', 'Hệ số nhiệt:']);
 
+    // Dashboard sections
     const dashSections = document.querySelectorAll('.dash-section-title');
     if (dashSections[0]) setFaultTitle(dashSections[0], '● Hiển thị số');
     if (dashSections[1]) setFaultSectionTitle(dashSections[1], '● Hiển thị lỗi', 'Mã lỗi:', 'Trạng thái:');
     if (dashSections[2]) dashSections[2].textContent = '● Trạng thái';
 
+    // Gear
     qGear(['Thấp', 'Trung bình', 'Cao', 'S']);
+
+    // Fault items
     qFaults(['Quá dòng','Thiếu áp','Hall','Quá áp','Quá nhiệt','Kẹt rotor','Tay ga','Bay tốc',
              'Phanh','Nạp sẵn','Lập trình','Driver','Chip nguồn','Contactor','Encoder','SPI']);
+
+    // Status items
     qStatus(['Lùi','Phanh','Chống','PARK','Chống trộm','Phát điện']);
 
+    // === PAGE 1 ===
     const sectionTitles = document.querySelectorAll('.section-title');
     const stVi = ['Cài Đặt Cơ Bản','Điện Áp Ga','Cài Đặt Khởi Động',
                   'Chế Độ Vận Hành','Cài Đặt Tốc Độ','Giới Hạn Tốc Độ',
@@ -68,14 +80,17 @@ function applyVietnamese() {
                   'Chức Năng Hỗ Trợ'];
     sectionTitles.forEach((el, i) => { if (stVi[i]) el.textContent = stVi[i]; });
 
+    // Page 1 param labels
     qParamLabels([
         'Quá áp (V)','Thiếu áp (V)','Thiếu áp mềm',
         'Độ trễ thiếu áp','Bus/Hãm ngược','GH dòng pha',
         'Bảo vệ thấp (V)','Khởi động (V)','Kết thúc (V)','Bảo vệ cao (V)',
         'Mô-men khởi động','Mô-men kết hợp','Độ dốc tăng','Độ dốc giảm'
     ]);
+    // Page 1 info bars
     qInfoBar('Phiên bản PM:', 'Phiên bản PC:', 'Nhà SX:', 'Model:', 'Điện áp:');
 
+    // Page 2 labels
     qLabels('#page-page2', [
         'Giới hạn dòng tối đa (A)','Giá trị suy từ','PI dòng (KI)',
         'Tự động thoát','Thời gian thoát (S)','Thời gian phục hồi (S)',
@@ -83,6 +98,7 @@ function applyVietnamese() {
         'Công tắc giới hạn tốc độ','Tỷ lệ giới hạn tốc độ (%)','Hệ số bù suy từ'
     ]);
 
+    // Page 3 labels
     qLabels('#page-page3', [
         'Tốc độ thấp %','GH dòng thấp %',
         'Tốc độ TB %','GH dòng TB %',
@@ -97,6 +113,7 @@ function applyVietnamese() {
         defaultGear: ['Thấp', 'Trung bình', 'Cao']
     });
 
+    // Page 4 labels
     qLabels('#page-page4', [
         'Số cặp cực','Góc lệch pha','Đổi Hall vàng-xanh','Đổi pha xanh-lục',
         'Chiều quay:','Loại:','Đầu ra:'
@@ -107,6 +124,7 @@ function applyVietnamese() {
         outputType: ['Một dây thông', 'Hall']
     });
 
+    // More page
     qLabels('#page-more', [
         'Đỗ xe tự động trên dốc','Chế độ Cruise','Hỗ trợ dắt xe',
         'Tốc độ dắt xe (%)','Mô-men dắt xe','Tự nhận diện điện áp kép',
@@ -114,9 +132,13 @@ function applyVietnamese() {
     ]);
     qRadioLabels('#page-more', { dualVoltageSelect: ['Thấp', 'Cao'] });
 
+    // Bottom bar
     qBottomBar(['📖 Đọc Dữ Liệu', '🔴 Ngắt BT', '💾 Lưu Dữ Liệu']);
+
+    // Modal
     q('.btn-cancel', 'Hủy');
     q('.btn-ok', 'Xác nhận');
+    // Info bar radio labels
     const p4Labels2 = document.querySelectorAll('#page-page4 .radio-row .label');
     if (p4Labels2[1]) p4Labels2[1].textContent = 'Loại:';
     if (p4Labels2[2]) p4Labels2[2].textContent = 'Đầu ra:';
@@ -166,6 +188,7 @@ function applyEnglish() {
         'Low Protect (V)','Start V (V)','End V (V)','High Protect (V)',
         'Start Torque','Coupling Torque','Rise Slope','Fall Slope'
     ]);
+    // Page 1 info bars
     qInfoBar('SW Ver:', 'HW Ver:', 'Brand:', 'Model:', 'Voltage:');
 
     qLabels('#page-page2', [
@@ -209,11 +232,13 @@ function applyEnglish() {
     qBottomBar(['📖 Read Data', '🔴 Disconnect', '💾 Save Data']);
     q('.btn-cancel', 'Cancel');
     q('.btn-ok', 'Confirm');
+    // Page 4 radio row labels
     const p4Labels2 = document.querySelectorAll('#page-page4 .radio-row .label');
     if (p4Labels2[1]) p4Labels2[1].textContent = 'Type:';
     if (p4Labels2[2]) p4Labels2[2].textContent = 'Output:';
 }
 
+// === Helper Functions ===
 function q(sel, text) {
     const el = document.querySelector(sel);
     if (el) el.textContent = text;
@@ -281,6 +306,9 @@ function qRadioLabels(pageId, map) {
 function qPageToggles(pageId, labels) {
     const page = document.querySelector(pageId);
     if (!page) return;
+    const toggleLabels = page.querySelectorAll('.toggle-row .label, .param-row .label');
+    let tIdx = 0;
+    // Get toggle and param rows after the gear section
     const rows = page.querySelectorAll('.toggle-row, .param-row:last-of-type');
     rows.forEach(row => {
         const lbl = row.querySelector('.label');
@@ -288,6 +316,7 @@ function qPageToggles(pageId, labels) {
     });
 }
 function qInfoBar(pmLabel, pcLabel, mfgLabel, modelLabel, voltLabel) {
+    // Version info bar
     const p1info = document.getElementById('page1Info');
     if (p1info) {
         const sw = p1info.textContent.match(/:\s*(\d+)/);
@@ -296,6 +325,7 @@ function qInfoBar(pmLabel, pcLabel, mfgLabel, modelLabel, voltLabel) {
         const hwVal = hw ? hw[1] : '0';
         p1info.textContent = `${pmLabel} ${swVal}   ${pcLabel} ${hwVal}`;
     }
+    // Device info labels
     const mfgEl = document.querySelector('[data-i18n="manufacturer"]');
     const modEl = document.querySelector('[data-i18n="modelLabel"]');
     const volEl = document.querySelector('[data-i18n="battVoltage"]');

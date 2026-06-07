@@ -9,21 +9,22 @@
 <body>
     <!-- HEADER -->
     <div class="header">
-        <div class="header-row">
-            <h1 data-i18n="appTitle">CÀI ĐẶT BỘ ĐIỀU KHIỂN VOTOL</h1>
-            <button class="lang-toggle" onclick="showLangModal()" title="Language">🌐</button>
+        <div class="header-top">
+            <h1 data-i18n="appTitle">VOTOL CONTROLLER</h1>
+            <div class="header-actions">
+                <button class="lang-toggle" onclick="showLangModal()" title="Language">🌐</button>
+            </div>
         </div>
-    </div>
-    <!-- CONNECTION BAR -->
-    <div class="conn-bar">
-        <div class="status-dot" id="statusDot"></div>
-        <span class="conn-label" id="connLabel">Chưa kết nối</span>
-        <select id="portSelect" style="display:none"><option value="">Auto</option></select>
-        <select id="baudRate">
-            <option value="115200" selected>115200</option>
-            <option value="9600">9600</option>
-        </select>
-        <button class="btn-connect" id="btnConnect" onclick="toggleConnection()" data-i18n="connect">Kết nối</button>
+        <div class="header-conn">
+            <div class="status-dot" id="statusDot"></div>
+            <span class="conn-label" id="connLabel">Chưa kết nối</span>
+            <select id="portSelect" style="display:none"><option value="">Auto</option></select>
+            <select id="baudRate" style="display:none">
+                <option value="115200" selected>115200</option>
+                <option value="9600">9600</option>
+            </select>
+            <button class="btn-connect" id="btnConnect" onclick="toggleConnection()" data-i18n="connect">Kết nối</button>
+        </div>
     </div>
 
     <!-- TAB NAVIGATION -->
@@ -216,7 +217,6 @@
     <!-- BOTTOM ACTION BAR -->
     <div class="bottom-bar">
         <button class="bottom-btn btn-read" onclick="readData()">📖 Đọc Dữ Liệu</button>
-        <button class="bottom-btn btn-disconnect" onclick="disconnectBT()">🔴 Ngắt BT</button>
         <button class="bottom-btn btn-save" onclick="saveData()">💾 Lưu Dữ Liệu</button>
     </div>
 
@@ -255,17 +255,25 @@
     <div class="modal-overlay" id="connectModal">
         <div class="modal connect-modal">
             <h3>🔌 Chọn phương thức kết nối</h3>
-            <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:16px;">Chọn cách kết nối với bộ điều khiển Votol</p>
+            <div class="connect-baud">
+                <label>Baud Rate:</label>
+                <select id="baudRateModal">
+                    <option value="115200" selected>115200</option>
+                    <option value="9600">9600</option>
+                    <option value="19200">19200</option>
+                    <option value="38400">38400</option>
+                </select>
+            </div>
             <div class="connect-options">
                 <button class="connect-opt-btn" id="btnConnBLE" onclick="connectViaBLE()">
                     <span class="connect-opt-icon">📡</span>
                     <span class="connect-opt-label">Bluetooth (BLE)</span>
-                    <span class="connect-opt-desc">Kết nối không dây qua module BLE</span>
+                    <span class="connect-opt-desc">Không dây qua module BLE</span>
                 </button>
                 <button class="connect-opt-btn" id="btnConnSerial" onclick="connectViaSerial()">
                     <span class="connect-opt-icon">🔌</span>
                     <span class="connect-opt-label">Cáp USB (Serial)</span>
-                    <span class="connect-opt-desc">Kết nối bằng cáp USB qua CH340/CP2102</span>
+                    <span class="connect-opt-desc">PL2303 / CH340 / CP2102 / FTDI</span>
                 </button>
             </div>
             <button class="btn-cancel" onclick="closeConnectModal()" style="margin-top:12px;width:100%;">Hủy</button>

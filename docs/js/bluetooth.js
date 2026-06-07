@@ -348,16 +348,8 @@ async function connectSerial(baudRate = 115200) {
         throw new Error('Web Serial không được hỗ trợ. Dùng Chrome trên máy tính (desktop).');
     }
 
-    // Prompt user to select a serial port
-    try {
-        serialPort = await navigator.serial.requestPort({ filters: SERIAL_FILTERS });
-    } catch (e) {
-        // If filtered request fails, try without filters
-        if (e.name === 'NotFoundError') {
-            throw e; // User cancelled
-        }
-        serialPort = await navigator.serial.requestPort();
-    }
+    // Prompt user to select a serial port (show ALL ports, no filter)
+    serialPort = await navigator.serial.requestPort();
 
     await serialPort.open({
         baudRate: baudRate,
